@@ -1,3 +1,4 @@
-name = "daily-pulse-news"
-main = "functions/api/news/index.ts"
+name = "daily-pulse-news-api"
+main = "worker/index.ts"
 compatibility_date = "2024-01-01"
+account_id = "ce6c5ce3257f2fa251f94815c2d2b930"

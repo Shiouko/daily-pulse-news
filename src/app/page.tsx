@@ -20,7 +20,9 @@ interface NewsResponse {
   fetchedAt: string;
 }
 
-const NEWS_API_URL = process.env.NEXT_PUBLIC_NEWS_API_URL || '/api/news';
+// Worker API URL - standalone Cloudflare Worker (not Pages Functions)
+// Deployed at: https://daily-pulse-news-api.u1tahunterxv.workers.dev
+const NEWS_API_URL = 'https://daily-pulse-news-api.u1tahunterxv.workers.dev';
 
 export default function Home() {
   const [news, setNews] = useState<NewsResponse | null>(null);
