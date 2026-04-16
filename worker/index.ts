@@ -24,19 +24,21 @@ const RSS_SOURCES = {
     { name: 'TechCrunch', url: 'https://techcrunch.com/feed/' },
   ],
   world: [
-    { name: 'BBC World', url: 'http://feeds.bbci.co.uk/news/world/rss.xml' },
-    { name: 'Reuters World', url: 'https://www.reutersagency.com/feed/?best-topics=world-news&post_type=best' },
+    { name: 'BBC News', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+    { name: 'ABC News', url: 'https://abcnews.go.com/abcnews/topstories' },
+    { name: 'NYTimes', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
   ],
 };
 
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 
-// In-memory cache (simple Map with timestamp)
+// In-memory cache
 const cache = new Map<string, CacheEntry>();
 
 function sanitize(str: string | undefined | null): string {
   if (!str) return '';
   return str
+    .replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '') // strip CDATA blocks first
     .replace(/<[^>]*>/g, '')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -54,26 +56,44 @@ function parseRSS(xml: string, sourceName: string, category: 'tech' | 'world'): 
 
   while ((match = itemRegex.exec(xml)) !== null) {
     const item = match[1];
+
+    // Title
     const titleMatch = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(item);
-    const linkMatch = /<link[^>]*>([\s\S]*?)<\/link>/i.exec(item);
-    const pubDateMatch = /<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i.exec(item);
-    const descMatch = /<description[^>]*>([\s\S]*?)<\/description>/i.exec(item);
-
     const title = sanitize(titleMatch?.[1]);
-    const link = sanitize(linkMatch?.[1] || getLinkFromGuid(item));
-    const publishedAt = pubDateMatch ? new Date(sanitize(pubDateMatch[1])).toISOString() : new Date().toISOString();
-    const description = sanitize(descMatch?.[1]);
+    if (!title) continue;
 
-    if (title && link) {
-      articles.push({
-        title,
-        link,
-        source: sourceName,
-        category,
-        publishedAt,
-        description: description?.substring(0, 200),
-      });
+    // Link - RSS 2.0 uses <link> plain or <link><![CDATA[...]]></link>
+    let link = '';
+    const cdataLink = /<link[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/link>/i.exec(item);
+    if (cdataLink) {
+      link = sanitize(cdataLink[1]);
+    } else {
+      const plainLink = /<link[^>]*>([\s\S]*?)<\/link>/i.exec(item);
+      link = sanitize(plainLink?.[1]) || getLinkFromGuid(item);
     }
+    if (!link) continue;
+
+    // PubDate
+    const pubDateMatch = /<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i.exec(item);
+    let publishedAt: string;
+    try {
+      publishedAt = pubDateMatch ? new Date(sanitize(pubDateMatch[1])).toISOString() : new Date().toISOString();
+    } catch {
+      publishedAt = new Date().toISOString();
+    }
+
+    // Description
+    const descMatch = /<description[^>]*>([\s\S]*?)<\/description>/i.exec(item);
+    const description = sanitize(descMatch?.[1])?.substring(0, 200);
+
+    articles.push({
+      title,
+      link,
+      source: sourceName,
+      category,
+      publishedAt,
+      description,
+    });
   }
 
   return articles;
@@ -107,14 +127,18 @@ async function fetchWithTimeout(url: string, timeout = 10000): Promise<string> {
   }
 }
 
-function dedupeArticles(articles: Article[]): Article[] {
+function dedupeArticles(articles: Article[], maxCount: number): Article[] {
   const seen = new Set<string>();
-  return articles.filter((article) => {
+  const result: Article[] = [];
+  for (const article of articles) {
     const key = article.title.toLowerCase().trim();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      result.push(article);
+      if (result.length >= maxCount) break;
+    }
+  }
+  return result;
 }
 
 async function fetchAllNews(): Promise<NewsResponse> {
@@ -122,42 +146,45 @@ async function fetchAllNews(): Promise<NewsResponse> {
   const worldArticles: Article[] = [];
 
   // Fetch tech sources
-  await Promise.all(
+  const techResults = await Promise.allSettled(
     RSS_SOURCES.tech.map(async (source) => {
-      try {
-        const xml = await fetchWithTimeout(source.url);
-        const articles = parseRSS(xml, source.name, 'tech');
-        techArticles.push(...articles);
-      } catch (err) {
-        console.error(`Failed to fetch ${source.name}:`, err);
-      }
+      const xml = await fetchWithTimeout(source.url);
+      return parseRSS(xml, source.name, 'tech');
     })
   );
+  for (const result of techResults) {
+    if (result.status === 'fulfilled') {
+      techArticles.push(...result.value);
+    } else {
+      console.error('Tech fetch failed:', result.reason);
+    }
+  }
 
   // Fetch world sources
-  await Promise.all(
+  const worldResults = await Promise.allSettled(
     RSS_SOURCES.world.map(async (source) => {
-      try {
-        const xml = await fetchWithTimeout(source.url);
-        const articles = parseRSS(xml, source.name, 'world');
-        worldArticles.push(...articles);
-      } catch (err) {
-        console.error(`Failed to fetch ${source.name}:`, err);
-      }
+      const xml = await fetchWithTimeout(source.url);
+      return parseRSS(xml, source.name, 'world');
     })
   );
+  for (const result of worldResults) {
+    if (result.status === 'fulfilled') {
+      worldArticles.push(...result.value);
+    } else {
+      console.error('World fetch failed:', result.reason);
+    }
+  }
 
-  // Sort by date, newest first
-  techArticles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-  worldArticles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  // Sort by date, newest first (filter out invalid dates first)
+  const validTech = techArticles.filter(a => !isNaN(new Date(a.publishedAt).getTime()));
+  const validWorld = worldArticles.filter(a => !isNaN(new Date(a.publishedAt).getTime()));
 
-  // Dedup
-  const dedupedTech = dedupeArticles(techArticles);
-  const dedupedWorld = dedupeArticles(worldArticles);
+  validTech.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  validWorld.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
   return {
-    tech: dedupedTech.slice(0, 30),
-    world: dedupedWorld.slice(0, 30),
+    tech: dedupeArticles(validTech, 30),
+    world: dedupeArticles(validWorld, 30),
     fetchedAt: new Date().toISOString(),
   };
 }
@@ -168,16 +195,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-const CACHE_KEY = 'news:all';
+const CACHE_KEY = 'news:v2';
 
 export default {
   async fetch(request: Request): Promise<Response> {
-    // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // Only allow GET
     if (request.method !== 'GET') {
       return new Response('Method not allowed', { status: 405, headers: corsHeaders });
     }
@@ -188,7 +213,6 @@ export default {
 
       if (cached) {
         const cacheAge = Date.now() - cached.timestamp;
-        // If cache is fresh (less than TTL), return it
         if (cacheAge < CACHE_TTL) {
           return new Response(JSON.stringify(cached.data), {
             headers: {
@@ -220,14 +244,12 @@ export default {
     } catch (err) {
       console.error('Worker error:', err);
 
-      // Try to return stale cache on error
       const stale = cache.get(CACHE_KEY);
       if (stale) {
         return new Response(JSON.stringify(stale.data), {
           headers: {
             'Content-Type': 'application/json',
             'X-Cache': 'STALE',
-            'X-Error': String(err),
             ...corsHeaders,
           },
         });
