@@ -4,7 +4,7 @@ interface Article {
   title: string;
   link: string;
   source: string;
-  category: 'tech' | 'world';
+  category: 'tech' | 'world' | 'ai' | 'malaysia';
   publishedAt: string;
   description?: string;
 }
@@ -28,13 +28,23 @@ function timeAgo(dateStr: string): string {
   return 'just now';
 }
 
+function categoryLabel(category: string): string {
+  const labels: Record<string, string> = {
+    tech: 'Tech',
+    world: 'World',
+    ai: 'AI',
+    malaysia: 'Malaysia',
+  };
+  return labels[category] || category;
+}
+
 export default function ArticleCard({ article }: ArticleCardProps) {
   return (
     <article className={`${styles.card} ${styles[article.category]}`}>
       <div className={styles.header}>
         <span className={styles.source}>{article.source}</span>
         <span className={`${styles.category} ${styles[article.category]}`}>
-          {article.category === 'tech' ? 'Tech' : 'World'}
+          {categoryLabel(article.category)}
         </span>
       </div>
       <h2 className={styles.title}>

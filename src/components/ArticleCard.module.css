@@ -2,28 +2,37 @@
 
 .card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border: 1px solid #d4d4d4;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: transform var(--transition), box-shadow var(--transition);
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  border-color: #b0b0b0;
 }
 
 /* Category accent border */
 .card.tech {
-  border-left: 3px solid var(--accent-tech);
+  border-left: 4px solid var(--accent-tech);
 }
 
 .card.world {
-  border-left: 3px solid var(--accent-world);
+  border-left: 4px solid var(--accent-world);
+}
+
+.card.ai {
+  border-left: 4px solid var(--accent-ai);
+}
+
+.card.malaysia {
+  border-left: 4px solid var(--accent-malaysia);
 }
 
 .header {
@@ -58,6 +67,16 @@
 .category.world {
   background: rgba(37, 99, 235, 0.1);
   color: var(--accent-world);
+}
+
+.category.ai {
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--accent-ai);
+}
+
+.category.malaysia {
+  background: rgba(5, 150, 105, 0.1);
+  color: var(--accent-malaysia);
 }
 
 .title {

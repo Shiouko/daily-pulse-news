@@ -2,7 +2,7 @@ interface Article {
   title: string;
   link: string;
   source: string;
-  category: 'tech' | 'world';
+  category: 'tech' | 'world' | 'ai' | 'malaysia';
   publishedAt: string;
   description?: string;
 }
@@ -10,6 +10,8 @@ interface Article {
 interface NewsResponse {
   tech: Article[];
   world: Article[];
+  ai: Article[];
+  malaysia: Article[];
   fetchedAt: string;
 }
 
@@ -27,6 +29,14 @@ const RSS_SOURCES = {
     { name: 'BBC News', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
     { name: 'ABC News', url: 'https://abcnews.go.com/abcnews/topstories' },
     { name: 'NYTimes', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
+  ],
+  ai: [
+    { name: 'Hacker News', url: 'https://hnrss.org/frontpage' },
+    { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index' },
+  ],
+  malaysia: [
+    { name: 'Malaysiakini', url: 'https://www.malaysiakini.com/rss/en/news.rss' },
+    { name: 'Free Malaysia Today', url: 'https://www.freemalaysiatoday.com/feed/' },
   ],
 };
 
@@ -49,7 +59,7 @@ function sanitize(str: string | undefined | null): string {
     .trim();
 }
 
-function parseRSS(xml: string, sourceName: string, category: 'tech' | 'world'): Article[] {
+function parseRSS(xml: string, sourceName: string, category: 'tech' | 'world' | 'ai' | 'malaysia'): Article[] {
   const articles: Article[] = [];
   const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
   let match;
@@ -144,6 +154,8 @@ function dedupeArticles(articles: Article[], maxCount: number): Article[] {
 async function fetchAllNews(): Promise<NewsResponse> {
   const techArticles: Article[] = [];
   const worldArticles: Article[] = [];
+  const aiArticles: Article[] = [];
+  const malaysiaArticles: Article[] = [];
 
   // Fetch tech sources
   const techResults = await Promise.allSettled(
@@ -175,16 +187,52 @@ async function fetchAllNews(): Promise<NewsResponse> {
     }
   }
 
+  // Fetch AI sources
+  const aiResults = await Promise.allSettled(
+    RSS_SOURCES.ai.map(async (source) => {
+      const xml = await fetchWithTimeout(source.url);
+      return parseRSS(xml, source.name, 'ai');
+    })
+  );
+  for (const result of aiResults) {
+    if (result.status === 'fulfilled') {
+      aiArticles.push(...result.value);
+    } else {
+      console.error('AI fetch failed:', result.reason);
+    }
+  }
+
+  // Fetch Malaysia sources
+  const malaysiaResults = await Promise.allSettled(
+    RSS_SOURCES.malaysia.map(async (source) => {
+      const xml = await fetchWithTimeout(source.url);
+      return parseRSS(xml, source.name, 'malaysia');
+    })
+  );
+  for (const result of malaysiaResults) {
+    if (result.status === 'fulfilled') {
+      malaysiaArticles.push(...result.value);
+    } else {
+      console.error('Malaysia fetch failed:', result.reason);
+    }
+  }
+
   // Sort by date, newest first (filter out invalid dates first)
   const validTech = techArticles.filter(a => !isNaN(new Date(a.publishedAt).getTime()));
   const validWorld = worldArticles.filter(a => !isNaN(new Date(a.publishedAt).getTime()));
+  const validAi = aiArticles.filter(a => !isNaN(new Date(a.publishedAt).getTime()));
+  const validMalaysia = malaysiaArticles.filter(a => !isNaN(new Date(a.publishedAt).getTime()));
 
   validTech.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
   validWorld.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  validAi.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  validMalaysia.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
   return {
     tech: dedupeArticles(validTech, 30),
     world: dedupeArticles(validWorld, 30),
+    ai: dedupeArticles(validAi, 30),
+    malaysia: dedupeArticles(validMalaysia, 30),
     fetchedAt: new Date().toISOString(),
   };
 }

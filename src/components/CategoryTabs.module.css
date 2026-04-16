@@ -1,50 +1,51 @@
 /* CategoryTabs - 2010s editorial flat design */
 
 .tabs {
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 32px;
+  background: var(--bg-card);
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
-.tabList {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: flex;
-  gap: 0;
-}
-
 .tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  padding: 16px 24px;
-  font-family: 'Source Sans 3', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-secondary);
+  padding: 14px 24px;
+  color: #666;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
   cursor: pointer;
-  transition: color var(--transition), border-color var(--transition);
-  margin-bottom: -1px;
+  transition: all 150ms ease;
 }
 
 .tab:hover {
-  color: var(--text-primary);
+  color: #333;
+  background: rgba(0,0,0,0.03);
 }
 
 .tab.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--text-primary);
+  color: #1a1a1a;
+  border-bottom-color: #e63946;
 }
 
 .tab.tech.active {
-  color: var(--accent-tech);
   border-bottom-color: var(--accent-tech);
 }
 
 .tab.world.active {
-  color: var(--accent-world);
   border-bottom-color: var(--accent-world);
+}
+
+.tab.ai.active {
+  border-bottom-color: var(--accent-ai);
+}
+
+.tab.malaysia.active {
+  border-bottom-color: var(--accent-malaysia);
 }

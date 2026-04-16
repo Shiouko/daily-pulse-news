@@ -9,7 +9,7 @@ interface Article {
   title: string;
   link: string;
   source: string;
-  category: 'tech' | 'world';
+  category: 'tech' | 'world' | 'ai' | 'malaysia';
   publishedAt: string;
   description?: string;
 }
@@ -17,6 +17,8 @@ interface Article {
 interface NewsResponse {
   tech: Article[];
   world: Article[];
+  ai: Article[];
+  malaysia: Article[];
   fetchedAt: string;
 }
 
@@ -28,7 +30,7 @@ export default function Home() {
   const [news, setNews] = useState<NewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'tech' | 'world'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'tech' | 'world' | 'ai' | 'malaysia'>('all');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const fetchNews = useCallback(async () => {
@@ -56,8 +58,8 @@ export default function Home() {
   const getFilteredArticles = (): Article[] => {
     if (!news) return [];
     if (activeTab === 'all') {
-      // Interleave tech and world, sorted by date
-      const combined = [...news.tech, ...news.world];
+      // Interleave tech, world, ai, malaysia, sorted by date
+      const combined = [...news.tech, ...news.world, ...news.ai, ...news.malaysia];
       combined.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
       return combined;
     }
@@ -69,15 +71,12 @@ export default function Home() {
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <div className={styles.headerContent}>
-          <div className={styles.brand}>
-            <h1 className={styles.title}>DAILY PULSE</h1>
-            <p className={styles.tagline}>Tech & World. Daily.</p>
-          </div>
+        <div className={styles.headerInner}>
+          <div className={styles.siteName}>DAILY PULSE</div>
+          <p className={styles.tagline}>Tech, World, AI &amp; Malaysia. Daily.</p>
           {lastUpdated && (
             <div className={styles.updateInfo}>
-              <span className={styles.updateIcon}> refresh </span>
-              <span>Updated {lastUpdated}</span>
+              Updated {lastUpdated}
             </div>
           )}
         </div>
@@ -118,7 +117,7 @@ export default function Home() {
       </section>
 
       <footer className={styles.footer}>
-        <p>Powered by RSS feeds from Hacker News, TechCrunch, BBC, and Reuters.</p>
+        <p>Powered by RSS feeds from Hacker News, TechCrunch, BBC, Ars Technica, Malaysiakini, and Free Malaysia Today.</p>
         <p>Built with Next.js and Cloudflare Workers.</p>
       </footer>
     </main>
